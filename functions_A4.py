@@ -22,22 +22,25 @@ def bernoulli_bandit_thompson(T, theta, seed=420):
     for t in range(T):
         # sample from the Beta distribution for each arm
         samples = rng.beta(alpha, beta)
+        # print(samples)
         
-        # select the treatment with the highest sample
+        # find which treatment gave the highest sample and select that treatment
         action = np.argmax(samples)
-        D_t[t] = action + 1
+        # store which treatment this corresponds to
+        D_t[t] = action
         
         # assume that outcome follows a Bernoulli distribution with parameter theta[action]
         outcome = rng.binomial(1, theta[action])
         Y_t[t] = outcome
+        # print(outcome)
         
         # update alpha and beta parameters of posterior based on the observed outcome
-        if outcome:
+        if outcome == 1:
             # another success
-            alpha[action] += 1
+            alpha[action] += outcome
         else:
             # not success
-            beta[action] += 1
+            beta[action] += 1 - outcome
             
     return D_t, Y_t
 
@@ -53,8 +56,9 @@ def calculate_replication(T, theta, seed=420):
     best_theta = np.max(theta)
     
     # get the theta value of the selected arm at each time step
-    theta_Dt = theta[D_t - 1]  # fix python array indexing
-    optimal_indicator = (D_t - 1 == best_arm).astype(float)  # fix python array indexing
+    theta_Dt = theta[D_t]
+    # how many times the optimal treatment was selected at each time step
+    optimal_indicator = (D_t == best_arm).astype(float)
     # calculate regret at each time step
     regret_t = best_theta - theta_Dt
 
@@ -82,4 +86,8 @@ def evaluate_bandit(T, theta, R, seed=420):
     avg_optimal = opt_all.mean(axis=0)
     avg_regret_t = regret_all.mean(axis=0)
 
-    return avg_Y_t, avg_theta_Dt, avg_optimal, avg_regret_t
+    # cumulative average regret and average of cumulative average regret across the R replications
+    avg_cum_regret_t = np.cumsum(avg_regret_t)
+    avg_cumavg_regret_t = avg_cum_regret_t / np.arange(1, T + 1)
+
+    return avg_Y_t, avg_theta_Dt, avg_optimal, avg_regret_t, avg_cum_regret_t, avg_cumavg_regret_t
