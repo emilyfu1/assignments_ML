@@ -2,7 +2,9 @@ import numpy as np
 import dask
 from dask import delayed, compute
 
+# question 1a
 def bernoulli_bandit_thompson(T, theta, seed=420):
+    # for generating from distributions
     rng = np.random.default_rng(seed)
 
     # get the amount of treatments from their true expected outcomes
@@ -44,6 +46,7 @@ def bernoulli_bandit_thompson(T, theta, seed=420):
             
     return D_t, Y_t
 
+# question 1b
 def calculate_replication(T, theta, seed=420):
     # format of theta
     theta = np.asarray(theta, dtype=float)
@@ -64,6 +67,7 @@ def calculate_replication(T, theta, seed=420):
 
     return Y_t.astype(float), theta_Dt, optimal_indicator, regret_t
 
+# question 1b
 def evaluate_bandit(T, theta, R, seed=420):
     # format of theta
     theta = np.asarray(theta, dtype=float)
@@ -91,3 +95,60 @@ def evaluate_bandit(T, theta, R, seed=420):
     avg_cumavg_regret_t = avg_cum_regret_t / np.arange(1, T + 1)
 
     return avg_Y_t, avg_theta_Dt, avg_optimal, avg_regret_t, avg_cum_regret_t, avg_cumavg_regret_t
+
+# question 2a
+def bernoulli_bandit_exploration(T, theta, seed=420, M=2000):
+    # for generating from distributions
+    rng = np.random.default_rng(seed)
+    
+    # get the amount of treatments from their true expected outcomes
+    k = len(theta)
+
+    # initialise arrays to store the selected treatments and observed outcomes
+    D_t = np.zeros(T, dtype=int)
+    Y_t = np.zeros(T)
+
+    # the posterior for theta_d at time t + 1 is a Beta distribution with parameters
+    # start with uniform prior over theta on [0, 1]^k
+    # 1 + number of successes
+    alpha = np.ones(k)
+    # 1 + number of failures
+    beta = np.ones(k)
+
+    for t in range(T):
+        # sample from the Beta distribution for each arm
+        draws = rng.beta(alpha, beta, size=(M, k))
+        # but now need to actually get a distribution i need to like approximate it
+        # find which arm is best in each simulated world
+        best_arms = np.argmax(draws, axis=1)
+        # count how often each arm is the largest, use those frequencies as an estimate for p
+        p_t = np.bincount(best_arms, minlength=k) / M
+
+        # calculate q_t for exploration sampling
+        weights = p_t * (1 - p_t)
+        q_t = weights / weights.sum()
+
+        # choose with probabilities given by q_t instead of directly from the beta distribution
+        action = rng.choice(k, p=q_t)
+        D_t[t] = action
+
+        # assume that outcome follows a Bernoulli distribution with parameter theta[action]
+        outcome = rng.binomial(1, theta[action])
+        Y_t[t] = outcome
+        # print(outcome)
+
+        # update alpha and beta parameters of posterior based on the observed outcome
+        if outcome == 1:
+            # another success
+            alpha[action] += outcome
+        else:
+            # not success
+            beta[action] += 1 - outcome
+
+    # mean for each arm after period T (beta distribution expected value)
+    posterior_means = alpha / (alpha + beta)
+
+    # treatment with highest posterior mean at time T
+    d_highest_posterior_mean = np.argmax(posterior_means)
+
+    return D_t, Y_t, d_highest_posterior_mean
