@@ -121,12 +121,22 @@ def bernoulli_bandit_exploration(T, theta, seed=420, M=2000):
         # but now need to actually get a distribution i need to like approximate it
         # find which arm is best in each simulated world
         best_arms = np.argmax(draws, axis=1)
-        # count how often each arm is the largest, use those frequencies as an estimate for p
+        # count how often each treatmnet is the largest, use those frequencies as an estimate for p
         p_t = np.bincount(best_arms, minlength=k) / M
+        # print(p_t)
 
         # calculate q_t for exploration sampling
         weights = p_t * (1 - p_t)
-        q_t = weights / weights.sum()
+        denom = weights.sum()
+        
+        # when it's got a weight of one on one treatment 
+        # (very certain that one treatment is best)
+        if denom == 0:
+            q_t = np.ones(k) / k   # fallback to uniform
+        else:
+            q_t = weights / denom
+        # print(weights)
+        # print(weights.sum())
 
         # choose with probabilities given by q_t instead of directly from the beta distribution
         action = rng.choice(k, p=q_t)
